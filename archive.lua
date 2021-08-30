@@ -1,93 +1,71 @@
+local archive = require("lib/archive")
+local shell = require("shell")
 local fs = require("filesystem")
-local unicode = require("unicode")
-local package = {}
-package.debugMode = false
-local packageSignature = "--@luaPackageFileSignature"
-local packageFileSeparator = "--@luaPackageFileSeparator"
-local packageFileEnd = "--@luaPackageFileEnd"
 
 ------------------------------------------------------------------------------------------------------------------------------------
+
+local args, options = shell.parse(...)
+
+if not options.q then
+	archive.debugMode = true
+end
 
 local function debug(text)
-	if package.debugMode then
-		print(text)
-	end
+	if not options.q then print(text) end
 end
 
-local function doPack(packageFileStream, path, packageFilePath, whereToSavePackedPackage)
-	local fileList = fs.list(path)
-	for file in fileList do
-		if fs.isDirectory(path .. file) then
-			doPack(packageFileStream, path .. file, packageFilePath .. file, whereToSavePackedPackage)
-		else
-			if (path .. file) ~= ("/" .. whereToSavePackedPackage) then
-				debug("Упаковка файла \"" .. path .. file .. "\"")
-
-				packageFileStream:write(packageFileSeparator, "\n")
-				packageFileStream:write("--@" .. packageFilePath .. file, "\n")
-				
-				local fileFileStream = io.open(path .. file, "r")
-				for line in fileFileStream:lines() do
-					packageFileStream:write(line, "\n")
-				end
-				packageFileStream:write(packageFileEnd, "\n")
-				fileFileStream:close()
-			end
-		end
+if args[1] == "pack" then
+	if not args[2] or not args[3] then
+		debug(" ")
+		debug("Использование: archive pack <имя архива> <архивируемая папка>")
+		debug(" ")
+		return
+	end 
+	debug(" ")
+	debug("Упаковка пакета начата")
+	debug(" ")
+	archive.pack(args[2], args[3])
+	debug(" ")
+	debug("Упаковка пакета завершена, файл сохранен как \"" .. args[2] .. "\", его размер составил " .. math.ceil(fs.size(args[2]) / 1024) .. "КБ")
+	debug(" ")
+elseif args[1] == "unpack" then
+	if not args[2] or not args[3] then
+		debug(" ")
+		debug("Использование: archive unpack <путь к архиву> <папка для сохранения файлов>")
+		debug(" ")
+		return
 	end
+	debug(" ")
+	debug("Распаковка пакета начата")
+	debug(" ")
+	archive.unpack(args[2], args[3])
+	debug(" ")
+	debug("Распаковка пакета \"" .. args[2] .. "\" завершена")
+	debug(" ")
+elseif args[1] == "download" or args[1] == "get" then
+	if not args[2] or not args[3] then
+		debug(" ")
+		debug("Использование: archive download <URL-ссылка на архив> <папка для сохранения файлов>")
+		debug(" ")
+		return
+	end
+	debug(" ")
+	debug("Загрузка файла по ссылке \"" .. args[2] .. "\"")
+	shell.execute("wget " .. args[2] .. " TempFile.pkg -fq")
+	debug(" ")
+	debug("Распаковка загруженного пакета")
+	archive.unpack("TempFile.pkg", args[3])
+	shell.execute("rm TempFile.pkg")
+	debug(" ")
+	debug("Пакет \"" .. args[2] .. "\" был успешно загружен и распакован")
+	debug(" ")
+else
+	debug(" ")
+	debug("Использование: archive <pack/unpack/download> ...")
+	debug(" ")
+	return
 end
+
+archive.debugMode = false
 
 ------------------------------------------------------------------------------------------------------------------------------------
-
-function package.pack(whereToSavePackedPackage, pathThatContainsFilesToPack)
-	local packageFileStream = io.open(whereToSavePackedPackage, "w")
-	packageFileStream:write(packageSignature, "\n")
-
-	doPack(packageFileStream, pathThatContainsFilesToPack .. "/", "", whereToSavePackedPackage)
-
-	packageFileStream:close()
-end
-
-function package.unpack(pathToPackedPackage, whereToSaveUnpackedFiles)
-	fs.makeDirectory(whereToSaveUnpackedFiles)
-
-	local packageFileStream = io.open(pathToPackedPackage, "r")
-	
-	--Проверка сигнатуры файла пакета
-	local readedSignature = packageFileStream:read("*l")
-	if readedSignature ~= packageSignature then error("Ошибка чтения файла пакета: неверная сигнатура. Возможно, вы пытаетесь наебать эту программу и подсовываете ей левый файл?\n") end
-
-	--Распаковка файла пакета на основе записей из него
-	local line = ""
-	local fileFileStream
-	while line do
-		line = packageFileStream:read("*l")
-		
-		if line == packageFileSeparator then
-			local path = unicode.sub(packageFileStream:read("*l"), 4, -1)
-			fs.makeDirectory(whereToSaveUnpackedFiles .. "/" .. (fs.path(path) or ""))
-
-			debug("Распаковка файла \"" .. whereToSaveUnpackedFiles .. "/" .. path .. "\"")		
-			fileFileStream = io.open(whereToSaveUnpackedFiles .. "/" .. path, "w")
-		elseif line == packageFileEnd then
-			fileFileStream:close()
-		else
-			fileFileStream:write(line, "\n")
-		end
-	end
-
-	packageFileStream:close()
-end
-
-------------------------------------------------------------------------------------------------------------------------------------
-
---package.pack("1.pkg", "MineOS")
---package.unpack("1.pkg", "unpackedFiles")
-
-------------------------------------------------------------------------------------------------------------------------------------
-
-return package
-
-
-
-
