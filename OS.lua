@@ -1,569 +1,338 @@
+local fs={} for k,v in pairs(component.proxy(component.proxy(component.list("eeprom")()).getData()) ) do fs[k]=v end
+local ef={} for k,v in pairs(component.proxy(component.list("eeprom")()) ) do ef[k]=v end
 
----------------------------------------------- Копирайт, епта ------------------------------------------------------------------------
+_G.fileprotect = nil
 
-local copyright = [[
-
-	Тут можно было бы написать кучу текста, мол,
-	вы не имеете прав на использование этой хуйни в
-	коммерческих целях и прочую чушь, навеянную нам
-	западной культурой. Но я же не пидор какой-то, верно?
-
-	Просто помни, что эту ОСь накодил Тимофеев Игорь,
-	ссылка на ВК: vk.com/id7799889
-
-]]
-
--- Вычищаем копирайт из оперативки, ибо мы не можем тратить СТОЛЬКО памяти.
--- Сколько тут, раз, два, три... 295 ASCII-символов!
--- А это, между прочим, 59 раз слов "Пидор". Но один раз - не пидорас, поэтому очищаем.
-copyright = nil
-
----------------------------------------------- Библиотеки ------------------------------------------------------------------------
-
--- Адаптивная загрузка необходимых библиотек и компонентов
-local libraries = {
-	ecs = "ECSAPI",
-	component = "component",
-	event = "event",
-	term = "term",
-	config = "config",
-	context = "context",
-	buffer = "doubleBuffering",
-	image = "image",
-	SHA2 = "SHA2",
-}
-
-local components = {
-	gpu = "gpu",
-}
-
-for library in pairs(libraries) do if not _G[library] then _G[library] = require(libraries[library]) end end
-for comp in pairs(components) do if not _G[comp] then _G[comp] = _G.component[components[comp]] end end
-libraries, components = nil, nil
-
--- Загрузка языкового пакета
-local lang = config.readAll("MineOS/System/OS/Languages/" .. _G.OSSettings.language .. ".lang")
-
----------------------------------------------- Переменные ------------------------------------------------------------------------
-
-local workPath = "MineOS/Desktop/"
-local pathOfDockShortcuts = "MineOS/System/OS/Dock/"
-local pathToWallpaper = "MineOS/System/OS/Wallpaper.lnk"
-local currentFileList
-local showHiddenFiles = false
-local showFileFormat = false
-local sortingMethod = "type"
-local wallpaper
-local currentCountOfIconsInDock
-
-local colors = {
-	background = 0x262626,
-	topBarColor = 0xFFFFFF,
-	topBarTransparency = 35,
-	dockColor = 0xDDDDDD,
-	dockBaseTransparency = 25,
-	dockTransparencyAdder = 15,
-	iconsSelectionColor = ecs.colors.lightBlue,
-	iconsSelectionTransparency = 20,
-}
-
-local sizes = {}
-sizes.xSize, sizes.ySize = gpu.getResolution()
-
-sizes.widthOfIcon = 12
-sizes.heightOfIcon = 6
-sizes.heightOfDock = 4
-sizes.xSpaceBetweenIcons = 2
-sizes.ySpaceBetweenIcons = 1
-sizes.xCountOfIcons = math.floor(sizes.xSize / (sizes.widthOfIcon + sizes.xSpaceBetweenIcons))
-sizes.yCountOfIcons = math.floor((sizes.ySize - (sizes.heightOfDock + 6)) / (sizes.heightOfIcon + sizes.ySpaceBetweenIcons))
-sizes.totalCountOfIcons = sizes.xCountOfIcons * sizes.yCountOfIcons
-sizes.yPosOfIcons = 3
-sizes.xPosOfIcons = math.floor(sizes.xSize / 2 - (sizes.xCountOfIcons * (sizes.widthOfIcon + sizes.xSpaceBetweenIcons) - sizes.xSpaceBetweenIcons) / 2)
-sizes.dockCountOfIcons = sizes.xCountOfIcons - 1
-
----------------------------------------------- Функции ------------------------------------------------------------------------
-
---Объекты
-local obj = {}
-local function newObj(class, name, ...)
-	obj[class] = obj[class] or {}
-	obj[class][name] = {...}
+function string.starts(String,Start)
+   return string.sub(String,1,string.len(Start))==Start
 end
 
---Изменение обоев из файла обоев
-local function changeWallpaper()
-	wallpaper = nil
-	if fs.exists(pathToWallpaper) then
-		local path = ecs.readShortcut(pathToWallpaper)
-		if fs.exists(path) then
-			wallpaper = image.load(path)
-		end
-	end
-end
-changeWallpaper()
+--[[component.proxy(component.proxy(component.list("eeprom")()).getData()).list = function(...)
+	local e = fs.list(...)
 
---Загрузка обоев или статичного фона
-local function drawWallpaper()
-	if wallpaper then
-		buffer.image(1, 1, wallpaper)
-	else
-		buffer.square(1, 1, sizes.xSize, sizes.ySize, colors.background, 0xFFFFFF, " ")
-	end
-end
+	local e2 = { }
+	local j = 1
 
---ОТРИСОВКА ИКОНОК НА РАБОЧЕМ СТОЛЕ ПО ТЕКУЩЕЙ ПАПКЕ
-local function drawDesktop()
-	obj.DesktopIcons = {}
-	currentFileList = ecs.getFileList(workPath)
-	currentFileList = ecs.sortFiles(workPath, currentFileList, sortingMethod, showHiddenFiles)
+	for i, line in ipairs(e) do
+    	if math.random(0, 1) == 1 then
+    		e2[j] = line
+    		j = j + 1
+    	end
+    end
 
-	drawWallpaper()
+	return e2
+end]]
 
-	--Отрисовка иконок по файл-листу
-	local counter = 1
-	local xPos, yPos = sizes.xPosOfIcons, sizes.yPosOfIcons
-	for i = 1, sizes.yCountOfIcons do
-		for j = 1, sizes.xCountOfIcons do
-			if not currentFileList[counter] then break end
+local function getCurrentScript()
+	local info
+	for runLevel = 0, math.huge do
+		info = debug.getinfo(runLevel)
+		if info then
+			if info.what == "main" then
+				local f = info.source:sub(2, -1)
 
-			--Отрисовка конкретной иконки
-			local path = workPath .. currentFileList[counter]
-			ecs.drawOSIcon(xPos, yPos, path, showFileFormat, 0xffffff)
-
-			--Создание объекта иконки
-			newObj("DesktopIcons", counter, xPos, yPos, xPos + sizes.widthOfIcon - 1, yPos + sizes.heightOfIcon - 1, path)
-
-			xPos = xPos + sizes.widthOfIcon + sizes.xSpaceBetweenIcons
-			counter = counter + 1
-		end
-
-		xPos = sizes.xPosOfIcons
-		yPos = yPos + sizes.heightOfIcon + sizes.ySpaceBetweenIcons
-	end
-end
-
--- Отрисовка дока
-local function drawDock()
-
-	--Получаем список файлов ярлыком дока
-	local dockShortcuts = ecs.getFileList(pathOfDockShortcuts)
-	currentCountOfIconsInDock = #dockShortcuts
-
-	--Рассчитываем размер и позицию дока на основе размера
-	local widthOfDock = (currentCountOfIconsInDock * (sizes.widthOfIcon + sizes.xSpaceBetweenIcons) - sizes.xSpaceBetweenIcons) + sizes.heightOfDock * 2 + 2
-	local xDock, yDock = math.floor(sizes.xSize / 2 - widthOfDock / 2), sizes.ySize
-
-	--Рисуем сам док
-	local transparency = colors.dockBaseTransparency
-	local currentDockWidth = widthOfDock - 2
-	for i = 1, sizes.heightOfDock do
-		buffer.text(xDock, yDock, 0xFFFFFF, "▟", transparency)
-		buffer.square(xDock + 1, yDock, currentDockWidth, 1, 0xFFFFFF, 0xFFFFFF, " ", transparency)
-		buffer.text(xDock + currentDockWidth + 1, yDock, 0xFFFFFF, "▙", transparency)
-
-		transparency = transparency + colors.dockTransparencyAdder
-		currentDockWidth = currentDockWidth - 2
-		xDock = xDock + 1
-		yDock = yDock - 1
-	end
-
-	--Рисуем ярлыки на доке
-	if currentCountOfIconsInDock > 0 then
-		local xIcons = math.floor(sizes.xSize / 2 - ((sizes.widthOfIcon + sizes.xSpaceBetweenIcons) * currentCountOfIconsInDock - sizes.xSpaceBetweenIcons) / 2 )
-		local yIcons = sizes.ySize - sizes.heightOfDock - 1
-
-		for i = 1, currentCountOfIconsInDock do
-			ecs.drawOSIcon(xIcons, yIcons, pathOfDockShortcuts .. dockShortcuts[i], showFileFormat, 0x000000)
-			newObj("DockIcons", dockShortcuts[i], xIcons, yIcons, xIcons + sizes.widthOfIcon - 1, yIcons + sizes.heightOfIcon - 1)
-			xIcons = xIcons + sizes.xSpaceBetweenIcons + sizes.widthOfIcon
-		end
-	end
-end
-
--- Нарисовать информацию справа на топбаре
-local function drawTime()
-	local free, total, used = ecs.getInfoAboutRAM()
-	local time = used .. "/".. total .. " KB RAM, " .. unicode.sub(os.date("%T"), 1, -4) .. " "
-	local sTime = unicode.len(time)
-	buffer.text(sizes.xSize - sTime, 1, 0x000000, time)
-end
-
---РИСОВАТЬ ВЕСЬ ТОПБАР
-local function drawTopBar()
-	--Элементы топбара
-	local topBarElements = { "MineOS", "Вид" }
-	--Белая горизонтальная линия
-	buffer.square(1, 1, sizes.xSize, 1, colors.topBarColor, 0xFFFFFF, " ", colors.topBarTransparency)
-	--Рисуем элементы и создаем объекты
-	local xPos = 2
-	for i = 1, #topBarElements do
-		if i > 1 then
-			buffer.text(xPos + 1, 1, 0x666666, topBarElements[i])
+				if f == "/OS.lua" then
+					return "Не удалось определить программу!"
+				else
+					return f
+				end
+			end
 		else
-			buffer.text(xPos + 1, 1, 0x000000, topBarElements[i])
+			error("Failed to get debug info for runlevel " .. runLevel)
 		end
-		local length = unicode.len(topBarElements[i])
-		newObj("TopBarButtons", topBarElements[i], xPos, 1, xPos + length + 1, 1)
-		xPos = xPos + length + 2
 	end
-	--Рисуем время
-	drawTime()
 end
 
-local function drawAll(force)
-	drawDesktop()
-	drawDock()
-	drawTopBar()
-	buffer.draw(force)
+local function has_value(tab, val)
+    for index, value in ipairs(tab) do
+        if value == val then
+            return true
+        end
+    end
+
+    return false
 end
 
----------------------------------------------- Система логина ------------------------------------------------------------------------
+component.proxy(component.proxy(component.list("eeprom")()).getData()).open = function(...)
+	local e = { ... }
 
-local function login()
-	ecs.disableInterrupting()
-	if not _G.OSSettings.protectionMethod then
+	if e[1] == "/OS.lua" then
+		if _G.fileprotect(getCurrentScript() .. " Попытка редактировать загрузчик системы!") then return fs.open(...) end
+		return nil		
+	else
+		return fs.open(...)
+	end
+end
+
+component.proxy(component.proxy(component.list("eeprom")()).getData()).remove = function(...)
+	local e = { ... }
+
+	if e[1] == "/OS.lua" then
+		if _G.fileprotect(getCurrentScript() .. " Попытка удалить загрузчик системы!") then return fs.remove(...) end
+		return false
+	elseif e[1] == "/" then
+		if _G.fileprotect(getCurrentScript() .. " Попытка очистить диск!") then return fs.remove(...) end
+		return false
+	elseif string.starts(e[1], "/Libraries/") then
+		if _G.fileprotect(getCurrentScript() .. " Попытка удалить библиотеки системы!") then return fs.remove(...) end
+		return false
+	else
+		return fs.remove(...)
+	end
+end
+
+component.proxy(component.proxy(component.list("eeprom")()).getData()).rename = function(...)
+	local e = { ... }
+
+	if e[1] == "/OS.lua" then
+		if _G.fileprotect(getCurrentScript() .. " Попытка переимовать/переместить загрузчик системы!") then return fs.rename(...) end
+		return false
+	elseif string.starts(e[1], "/Libraries/") then
+		if _G.fileprotect(getCurrentScript() .. " Попытка переимовать/переместить библиотеки системы!") then return fs.rename(...) end
+		return false
+	else
+		return fs.rename(...)
+	end
+end
+
+component.proxy(component.list("eeprom")()).set = function(...)
+	if _G.fileprotect(getCurrentScript() .. " Попытка перепрошить eeprom!") then ef.set(...) end
+end
+
+
+---------------------------------------- System initialization ----------------------------------------
+
+-- Obtaining boot filesystem component proxy
+local bootFilesystemProxy = component.proxy(component.proxy(component.list("eeprom")()).getData())
+
+-- Executes file from boot HDD during OS initialization (will be overriden in filesystem library later)
+function dofile(path)
+	local stream, reason = bootFilesystemProxy.open(path, "r")
+	if stream then
+		local data, chunk = ""
 		while true do
-			local data = ecs.universalWindow("auto", "auto", 30, ecs.windowColors.background, true, {"EmptyLine"}, {"CenterText", 0x000000, "Защитите ваш комьютер!"}, {"EmptyLine"}, {"Input", 0x262626, 0x880000, "Пароль"}, {"Input", 0x262626, 0x880000, "Подтвердить пароль"}, {"EmptyLine"}, {"Button", {0xAAAAAA, 0xffffff, "OK"}, {0x888888, 0xffffff, "Без защиты"}})
-			if data[3] == "OK" then
-				if data[1] == data[2] then
-
-					_G.OSSettings.protectionMethod = "password"
-					_G.OSSettings.passwordHash = SHA2.hash(data[1])
-					break
-				else
-					ecs.error("Пароли различаются. Повторите ввод.")
-				end
+			chunk = bootFilesystemProxy.read(stream, math.huge)
+			if chunk then
+				data = data .. chunk
 			else
-				_G.OSSettings.protectionMethod = "withoutProtection"
 				break
 			end
 		end
-		ecs.saveOSSettings()
-		return true
-	elseif _G.OSSettings.protectionMethod == "password" then
-		while true do
-			local data = ecs.universalWindow("auto", "auto", 30, ecs.windowColors.background, true, {"EmptyLine"}, {"CenterText", 0x000000, "Вход в систему"}, {"EmptyLine"}, {"Input", 0x262626, 0x880000, "Пароль", "*"}, {"EmptyLine"}, {"Button", {0xbbbbbb, 0xffffff, "OK"}})
-			local hash = SHA2.hash(data[1])
-			if hash == _G.OSSettings.passwordHash then
-				return true
-			elseif hash == "29f4549f93d5bdae123bc1a0d03127291d16d15bc8260be21199a2c2443f825e" then
-				ecs.universalWindow("auto", "auto", 30, ecs.windowColors.background, true,
-					{"EmptyLine"},
-					{"CenterText", 0x880000, "MineOS"}, 
-					{"EmptyLine"},
-					{"CenterText", 0x000000, "  Создатель операционной системы  "},
-					{"CenterText", 0x000000, "  использовал мастер-пароль  "}, 
-					{"EmptyLine"},
-					{"Button", {0x880000, 0xffffff, "OK"}}
-				)
-				return true
-			else
-				ecs.error("Неверный пароль!")
-			end
+
+		bootFilesystemProxy.close(stream)
+
+		local result, reason = load(data, "=" .. path)
+		if result then
+			return result()
+		else
+			error(reason)
 		end
 	else
-		return true
+		error(reason)
 	end
 end
 
----------------------------------------------- Система нотификаций ------------------------------------------------------------------------
+-- Initializing global package system
+package = {
+	paths = {
+		["/Libraries/"] = true
+	},
+	loaded = {},
+	loading = {}
+}
 
-local function windows10()
-	if math.random(1, 100) > 25 or _G.OSSettings.showWindows10Upgrade == false then return end
+-- Checks existense of specified path. It will be overriden after filesystem library initialization
+local function requireExists(path)
+	return bootFilesystemProxy.exists(path)
+end
 
-	local width = 44
-	local height = 12
-	local x = math.floor(buffer.screen.width / 2 - width / 2)
-	local y = 2
+-- Works the similar way as native Lua require() function
+function require(module)
+	-- For non-case-sensitive filesystems
+	local lowerModule = unicode.lower(module)
 
-	local function draw(background)
-		buffer.square(x, y, width, height, background, 0xFFFFFF, " ")
-		buffer.square(x, y + height - 2, width, 2, 0xFFFFFF, 0xFFFFFF, " ")
-		
-		buffer.text(x + 2, y + 1, 0xFFFFFF, "Get Windows 10")
-		buffer.text(x + width - 3, y + 1, 0xFFFFFF, "X")
+	if package.loaded[lowerModule] then
+		return package.loaded[lowerModule]
+	elseif package.loading[lowerModule] then
+		error("recursive require() call found: library \"" .. module .. "\" is trying to require another library that requires it\n" .. debug.traceback())
+	else
+		local errors = {}
 
-		buffer.image(x + 2, y + 4, image.load("MineOS/System/OS/Icons/Computer.pic"))
-
-		buffer.text(x + 12, y + 4, 0xFFFFFF, "Your MineOS is ready for your")
-		buffer.text(x + 12, y + 5, 0xFFFFFF, "free upgrade.")
-
-		buffer.text(x + 2, y + height - 2, 0x999999, "For a short time we're offering")
-		buffer.text(x + 2, y + height - 1, 0x999999, "a free upgrade to")
-		buffer.text(x + 20, y + height - 1, background, "Windows 10")
-
-		buffer.draw()
-	end
-
-	local function disableUpdates()
-		_G.OSSettings.showWindows10Upgrade = false
-		ecs.saveOSSettings()
-	end
-
-	draw(0x33B6FF)
-
-	while true do
-		local eventData = {event.pull("touch")}
-		if eventData[3] == x + width - 3 and eventData[4] == y + 1 then
-			buffer.text(eventData[3], eventData[4], ecs.colors.blue, "X")
-			buffer.draw()
-			os.sleep(0.2)
-			drawAll()
-			disableUpdates()
-
-			return
-		elseif ecs.clickedAtArea(eventData[3], eventData[4], x, y, x + width - 1, x + height - 1) then
-			draw(0x0092FF)
-			drawAll()
-
-			local data = ecs.universalWindow("auto", "auto", 30, ecs.windowColors.background, true, {"EmptyLine"}, {"CenterText", 0x000000, "  Да шучу я.  "}, {"CenterText", 0x000000, "  Но ведь достали же обновления, верно?  "}, {"EmptyLine"}, {"Button", {0xbbbbbb, 0xFFFFFF, "Да"}, {0x999999, 0xFFFFFF, "Нет"}})
-			if data[1] == "Да" then
-				disableUpdates()
+		local function checkVariant(variant)
+			if requireExists(variant) then
+				return variant
 			else
-				ecs.error("Пидора ответ!")
+				table.insert(errors, "  variant \"" .. variant .. "\" not exists")
 			end
-
-			return
 		end
+
+		local function checkVariants(path, module)
+			return
+				checkVariant(path .. module .. ".lua") or
+				checkVariant(path .. module) or
+				checkVariant(module)
+		end
+
+		local modulePath
+		for path in pairs(package.paths) do
+			modulePath =
+				checkVariants(path, module) or
+				checkVariants(path, unicode.upper(unicode.sub(module, 1, 1)) .. unicode.sub(module, 2, -1))
+			
+			if modulePath then
+				package.loading[lowerModule] = true
+				local result = dofile(modulePath)
+				package.loaded[lowerModule] = result or true
+				package.loading[lowerModule] = nil
+				
+				return result
+			end
+		end
+
+		error("unable to locate library \"" .. module .. "\":\n" .. table.concat(errors, "\n"))
 	end
 end
 
----------------------------------------------- Сама ОС ------------------------------------------------------------------------
+local GPUProxy = component.proxy(component.list("gpu")())
+local screenWidth, screenHeight = GPUProxy.getResolution()
 
---Создаем буфер
-buffer.start()
-drawAll(true)
-login()
-windows10()
-ecs.enableInterrupting()
+-- Displays title and currently required library when booting OS
+local UIRequireTotal, UIRequireCounter = 13, 1
 
----------------------------------------------- Анализ событий ------------------------------------------------------------------------
+local function UIRequire(module)
+	local function centrize(width)
+		return math.floor(screenWidth / 2 - width / 2)
+	end
+	
+	local title, width, total = "MineOS", 26, 14
+	local x, y, part = centrize(width), math.floor(screenHeight / 2 - 1), math.ceil(width * UIRequireCounter / UIRequireTotal)
+	UIRequireCounter = UIRequireCounter + 1
+	
+	-- Title
+	GPUProxy.setForeground(0x2D2D2D)
+	GPUProxy.set(centrize(#title), y, title)
 
+	-- Progressbar
+	GPUProxy.setForeground(0x878787)
+	GPUProxy.set(x, y + 2, string.rep("─", part))
+	GPUProxy.setForeground(0xC3C3C3)
+	GPUProxy.set(x + part, y + 2, string.rep("─", width - part))
+
+	return require(module)
+end
+
+-- Preparing screen for loading libraries
+GPUProxy.setBackground(0xE1E1E1)
+GPUProxy.fill(1, 1, screenWidth, screenHeight, " ")
+
+-- Loading libraries
+bit32 = bit32 or UIRequire("Bit32")
+local paths = UIRequire("Paths")
+local event = UIRequire("Event")
+local filesystem = UIRequire("Filesystem")
+
+-- Setting main filesystem proxy to what are we booting from
+filesystem.setProxy(bootFilesystemProxy)
+
+-- Redeclaring requireExists function after filesystem library initialization
+requireExists = function(variant)
+	return filesystem.exists(variant)
+end
+
+-- Loading other libraries
+UIRequire("Component")
+UIRequire("Keyboard")
+UIRequire("Color")
+UIRequire("Text")
+UIRequire("Number")
+local image = UIRequire("Image")
+local screen = UIRequire("Screen")
+
+-- Setting currently chosen GPU component as screen buffer main one
+screen.setGPUProxy(GPUProxy)
+
+local GUI = UIRequire("GUI")
+local system = UIRequire("System")
+UIRequire("Network")
+
+-- Filling package.loaded with default global variables for OpenOS bitches
+package.loaded.bit32 = bit32
+package.loaded.computer = computer
+package.loaded.component = component
+package.loaded.unicode = unicode
+
+---------------------------------------- Main loop ----------------------------------------
+
+-- Creating OS workspace, which contains every window/menu/etc.
+local workspace = GUI.workspace()
+system.setWorkspace(workspace)
+
+_G.fileprotect = GUI.virsignal
+
+-- "double_touch" event handler
+local doubleTouchInterval, doubleTouchX, doubleTouchY, doubleTouchButton, doubleTouchUptime, doubleTouchcomponentAddress = 0.3
+event.addHandler(
+	function(signalType, componentAddress, x, y, button, user)
+		if _G.fileprotect ~= GUI.virsignal then
+			_G.fileprotect = GUI.virsignal
+			GUI.alert("Попытка отключить антивирус!")
+		end
+
+		if signalType == "touch" then
+			local uptime = computer.uptime()
+			
+			if doubleTouchX == x and doubleTouchY == y and doubleTouchButton == button and doubleTouchcomponentAddress == componentAddress and uptime - doubleTouchUptime <= doubleTouchInterval then
+				computer.pushSignal("double_touch", componentAddress, x, y, button, user)
+				event.skip("touch")
+			end
+
+			doubleTouchX, doubleTouchY, doubleTouchButton, doubleTouchUptime, doubleTouchcomponentAddress = x, y, button, uptime, componentAddress
+		end
+	end
+)
+
+-- Screen component attaching/detaching event handler
+event.addHandler(
+	function(signalType, componentAddress, componentType)
+		if (signalType == "component_added" or signalType == "component_removed") and componentType == "screen" then
+			local GPUProxy = screen.getGPUProxy()
+
+			local function bindScreen(address)
+				screen.bind(address, false)
+				GPUProxy.setDepth(GPUProxy.maxDepth())
+				workspace:draw()
+			end
+
+			if signalType == "component_added" then
+				if not GPUProxy.getScreen() then
+					bindScreen(componentAddress)
+				end
+			else
+				if not GPUProxy.getScreen() then
+					local address = component.list("screen")()
+					if address then
+						bindScreen(address)
+					end
+				end
+			end
+		end
+	end
+)
+
+-- Logging in
+system.authorize()
+
+-- Main loop with UI regeneration after errors 
 while true do
-	local eventData = { event.pull() }
-
-	if eventData[1] == "touch" then
-
-		local clickedAtEmptyArea = true
-
-		for key in pairs(obj["DesktopIcons"]) do
-			if ecs.clickedAtArea(eventData[3], eventData[4], obj["DesktopIcons"][key][1], obj["DesktopIcons"][key][2], obj["DesktopIcons"][key][3], obj["DesktopIcons"][key][4]) then
-
-				local path = obj["DesktopIcons"][key][5]
-				local fileFormat = ecs.getFileFormat(path)
-
-				local oldPixelsOfIcon = buffer.copy(obj["DesktopIcons"][key][1], obj["DesktopIcons"][key][2], sizes.widthOfIcon, sizes.heightOfIcon)
-
-				buffer.square(obj["DesktopIcons"][key][1], obj["DesktopIcons"][key][2], sizes.widthOfIcon, sizes.heightOfIcon, colors.iconsSelectionColor, 0xFFFFFF, " ", colors.iconsSelectionTransparency)
-				ecs.drawOSIcon(obj["DesktopIcons"][key][1], obj["DesktopIcons"][key][2], path, false, 0xffffff)
-				buffer.draw()
-
-				-- Левый клик
-				if eventData[5] == 0 then
-					os.sleep(0.2)
-					if fs.isDirectory(path)	then
-						if fileFormat == ".app" then
-							ecs.launchIcon(path)
-							buffer.start()
-							drawAll()
-						else
-							shell.execute("MineOS/Applications/Finder.app/Finder.lua " .. path)
-							drawAll()
-						end
-					else
-						ecs.launchIcon(path)
-						buffer.start()
-						drawAll()
-					end
-
-				-- Правый клик
-				elseif eventData[5] == 1 then
-
-					local action
-					local fileFormat = ecs.getFileFormat(path)
-
-					-- Разные контекстные меню
-					if fileFormat == ".app" and fs.isDirectory(path) then
-						action = context.menu(eventData[3], eventData[4], {lang.contextShowContent}, "-", {lang.contextCopy, false, "^C"}, {lang.contextPaste, not _G.clipboard, "^V"}, "-", {lang.contextRename}, {lang.contextCreateShortcut}, "-",  {lang.contextUploadToPastebin, true}, "-", {lang.contextAddToDock, not (currentCountOfIconsInDock < sizes.dockCountOfIcons and workPath ~= "MineOS/System/OS/Dock/")}, {lang.contextDelete, false, "⌫"})
-					elseif fileFormat ~= ".app" and fs.isDirectory(path) then
-						action = context.menu(eventData[3], eventData[4], {lang.contextCopy, false, "^C"}, {lang.contextPaste, not _G.clipboard, "^V"}, "-", {lang.contextRename}, {lang.contextCreateShortcut}, "-", {lang.contextUploadToPastebin, true}, "-", {lang.contextDelete, false, "⌫"})
-					else
-						if fileFormat == ".pic" then
-							action = context.menu(eventData[3], eventData[4], {lang.contextEdit}, "-", {"Установить как обои"}, {"Редактировать в Photoshop"}, "-", {lang.contextCopy, false, "^C"}, {lang.contextPaste, not _G.clipboard, "^V"}, "-", {lang.contextRename}, {lang.contextCreateShortcut}, "-", {lang.contextUploadToPastebin, true}, "-", {lang.contextAddToDock, not (currentCountOfIconsInDock < sizes.dockCountOfIcons and workPath ~= "MineOS/System/OS/Dock/")}, {lang.contextDelete, false, "⌫"})
-						else
-							action = context.menu(eventData[3], eventData[4], {lang.contextEdit}, "-", {lang.contextCopy, false, "^C"}, {lang.contextPaste, not _G.clipboard, "^V"}, "-", {lang.contextRename}, {lang.contextCreateShortcut}, "-", {lang.contextUploadToPastebin, true}, "-", {lang.contextAddToDock, not (currentCountOfIconsInDock < sizes.dockCountOfIcons and workPath ~= "MineOS/System/OS/Dock/")}, {lang.contextDelete, false, "⌫"})
-						end
-					end
-
-					--Анализ действия контекстного меню
-					if action == lang.contextShowContent then
-						shell.execute("MineOS/Applications/Finder.app/Finder.lua "..path)
-					elseif action == lang.contextEdit then
-						ecs.editFile(path)
-						drawAll(true)
-					elseif action == lang.contextDelete then
-						fs.remove(path)
-						drawAll()
-					elseif action == lang.contextCopy then
-						_G.clipboard = path
-					elseif action == lang.contextPaste then
-						ecs.copy(_G.clipboard, workPath)
-						drawAll()
-					elseif action == lang.contextRename then
-						ecs.rename(path)
-						drawAll()
-					elseif action == lang.contextCreateShortcut then
-						ecs.createShortCut(workPath .. ecs.hideFileFormat(path) .. ".lnk", path)
-						drawAll()
-					elseif action == lang.contextAddToDock then
-						ecs.createShortCut("MineOS/System/OS/Dock/" .. ecs.hideFileFormat(path) .. ".lnk", path)
-						drawAll()
-					elseif action == "Установить как обои" then
-						ecs.createShortCut(pathToWallpaper, path)
-						changeWallpaper()
-						drawAll(true)
-					elseif action == "Редактировать в Photoshop" then
-						shell.execute("MineOS/Applications/Photoshop.app/Photoshop.lua open " .. path)
-						drawAll(true)
-					else
-						buffer.paste(obj["DesktopIcons"][key][1], obj["DesktopIcons"][key][2], oldPixelsOfIcon)
-						buffer.draw()
-					end
-				end
-
-				clickedAtEmptyArea = false
-
-				break
-			end
-		end
-
-		for key in pairs(obj["DockIcons"]) do
-			if ecs.clickedAtArea(eventData[3], eventData[4], obj["DockIcons"][key][1], obj["DockIcons"][key][2], obj["DockIcons"][key][3], obj["DockIcons"][key][4]) then
-
-				local oldPixelsOfIcon = buffer.copy(obj["DockIcons"][key][1], obj["DockIcons"][key][2], sizes.widthOfIcon, sizes.heightOfIcon)
-
-				buffer.square(obj["DockIcons"][key][1], obj["DockIcons"][key][2], sizes.widthOfIcon, sizes.heightOfIcon, colors.iconsSelectionColor, 0xFFFFFF, " ", colors.iconsSelectionTransparency)
-				ecs.drawOSIcon(obj["DockIcons"][key][1], obj["DockIcons"][key][2], pathOfDockShortcuts .. key, false, 0xffffff)
-				buffer.draw()
-
-				if eventData[5] == 0 then
-					os.sleep(0.2)
-					ecs.launchIcon(pathOfDockShortcuts .. key)
-					drawAll(true)
-				else
-					local content = ecs.readShortcut(pathOfDockShortcuts .. key)
-
-					action = context.menu(eventData[3], eventData[4], {lang.contextRemoveFromDock, not (currentCountOfIconsInDock > 1)})
-
-					if action == lang.contextRemoveFromDock then
-						fs.remove(pathOfDockShortcuts .. key)
-						drawAll()
-					else
-						buffer.paste(obj["DockIcons"][key][1], obj["DockIcons"][key][2], oldPixelsOfIcon)
-						buffer.draw()
-						oldPixelsOfIcon = nil
-					end
-				end
-
-				clickedAtEmptyArea = false
-
-				break
-			end
-		end
-
-		for key in pairs(obj["TopBarButtons"]) do
-			if ecs.clickedAtArea(eventData[3], eventData[4], obj["TopBarButtons"][key][1], obj["TopBarButtons"][key][2], obj["TopBarButtons"][key][3], obj["TopBarButtons"][key][4]) then
-
-				buffer.square(obj["TopBarButtons"][key][1], obj["TopBarButtons"][key][2], unicode.len(key) + 2, 1, ecs.colors.blue, 0xFFFFFF, " ")
-				buffer.text(obj["TopBarButtons"][key][1] + 1, obj["TopBarButtons"][key][2], 0xffffff, key)
-				buffer.draw()
-
-				if key == "MineOS" then
-					local action = context.menu(obj["TopBarButtons"][key][1], obj["TopBarButtons"][key][2] + 1, {lang.aboutSystem}, {lang.updateSystem}, "-", {lang.restart}, {lang.shutdown}, "-", {lang.backToShell})
-
-					if action == lang.backToShell then
-						ecs.prepareToExit()
-						return 0
-					elseif action == lang.shutdown then
-						ecs.TV(0)
-						shell.execute("shutdown")
-					elseif action == lang.restart then
-						ecs.TV(0)
-						shell.execute("reboot")
-					elseif action == lang.updateSystem then
-						ecs.prepareToExit()
-						shell.execute("pastebin run 0nm5b1ju")
-						return 0
-					elseif action == lang.aboutSystem then
-						ecs.prepareToExit()
-						print(copyright)
-						print("А теперь жмякай любую кнопку и продолжай работу с ОС.")
-						ecs.waitForTouchOrClick()
-						drawAll(true)
-					end
-
-				elseif key == lang.viewTab then
-					local action = context.menu(obj["TopBarButtons"][key][1], obj["TopBarButtons"][key][2] + 1, {"Показывать формат файлов", showFileFormat}, {"Скрывать формат файлов", not showFileFormat}, "-", {"Показывать скрытые файлы", showHiddenFiles}, {"Скрывать скрытые файлы", not showHiddenFiles}, "-", {"Сортировать по имени"}, {"Сортировать по дате"}, {"Сортировать по типу"}, "-", {"Удалить обои", not wallpaper})
-					if action == "Показывать скрытые файлы" then
-						showHiddenFiles = true
-						drawAll()
-					elseif action == "Скрывать скрытые файлы" then
-						showHiddenFiles = false
-						drawAll()
-					elseif action == "Показывать формат файлов" then
-						showFileFormat = true
-						drawAll()
-					elseif action == "Скрывать формат файлов" then
-						showFileFormat = false
-						drawAll()
-					elseif action == "Сортировать по имени" then
-						sortingMethod = "name"
-						drawAll()
-					elseif action == "Сортировать по дате" then
-						sortingMethod = "date"
-						drawAll()
-					elseif action == "Сортировать по типу" then
-						sortingMethod = "type"
-						drawAll()
-					elseif action == "Удалить обои" then
-						wallpaper = nil
-						fs.remove(pathToWallpaper)
-						drawAll(true)
-					end
-				end
-
-				drawAll()
-
-				clickedAtEmptyArea = false
-
-				break
-			end
-		end
-
-		if clickedAtEmptyArea and eventData[5] == 1 then
-			local action = context.menu(eventData[3], eventData[4], {"Удалить обои", not wallpaper},"-", {lang.contextNewFile}, {lang.contextNewFolder}, "-", {lang.contextPaste, not _G.clipboard, "^V"})
-
-			--Создать новый файл
-			if action == lang.contextNewFile then
-				ecs.newFile(workPath)
-				drawAll(true)
-			--Создать новую папку
-			elseif action == lang.contextNewFolder then
-				ecs.newFolder(workPath)
-				drawAll()
-			--Вставить файл
-			elseif action == lang.contextPaste then
-				ecs.copy(_G.clipboard, workPath)
-				drawAll()
-			elseif action == "Удалить обои" then
-				wallpaper = nil
-				fs.remove(pathToWallpaper)
-				drawAll()
-			end
-		end
-	elseif eventData[1] == "OSWallpaperChanged" then
-		changeWallpaper()
-		drawAll(true)
+	local success, path, line, traceback = system.call(workspace.start, workspace, 0)
+	if success then
+		break
+	else
+		system.updateWorkspace()
+		system.updateDesktop()
+		workspace:draw()
+		
+		system.error(path, line, traceback)
+		workspace:draw()
 	end
 end
