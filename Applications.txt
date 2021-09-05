@@ -2,7 +2,7 @@
   ----------------------------------------------------- Все для ОС --------------------------------------------------------------------------
   {
     ["name"]="OS.lua",
-    ["url"]="IgorTimofeev/OpenComputers/master/MineOS/OS.lua",
+    ["url"]="Hapalarast/MineOS/main/OS.lua",
     ["type"]="Script",
     ["version"]=3.0,
   },
